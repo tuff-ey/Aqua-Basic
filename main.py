@@ -22,7 +22,7 @@ def latest_reading_get(_ = Depends(verify_api_key)):
     return get_reading
 
 
-@app.post("/latest_reading")
+@app.post("/tank-data")
 def latest_reading_post(reading: Post_Readings, _ = Depends(verify_api_key)):
     
     # Averaging the sensor duration
