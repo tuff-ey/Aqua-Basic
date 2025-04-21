@@ -13,7 +13,7 @@ logging.basicConfig(level=logging.INFO)
 
 app= FastAPI()
 
-@app.get("/latest_reading")
+@app.get("/get_latest_reading")
 def latest_reading_get(_ = Depends(verify_api_key)):
     
     #Reading from CSV
@@ -22,7 +22,7 @@ def latest_reading_get(_ = Depends(verify_api_key)):
     return get_reading
 
 
-@app.post("/tank-data/")
+@app.post("/post_latest_reading")
 def latest_reading_post(reading: Post_Readings, _ = Depends(verify_api_key)):
     
     # Averaging the sensor duration
