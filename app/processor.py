@@ -16,7 +16,7 @@ def calculator(reading,mean_sensor_duration):
     
     water_volume = round ((3.14 * (Settings.TANK_RADIUS ** 2) * water_level) / 1000, ndigits=1)
     
-    timestamp = datetime.fromtimestamp (reading.sensor_timestamp).strftime("%Y-%m-%d %H:%M:%S")
+    timestamp = datetime.fromtimestamp (reading.sensor_time).strftime("%Y-%m-%d %H:%M:%S")
     
     return [timestamp, water_level, water_percentage, water_volume]
 

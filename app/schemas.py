@@ -3,9 +3,9 @@ import datetime as dt
 
 
 class Post_Readings(BaseModel):
-    sensor_1_duration: float = Field(..., description="Duration of the --'sensor 1' in milliseconds")
-    sensor_2_duration: float = Field(..., description="Duration of the --'sensor 2' in milliseconds")
-    sensor_timestamp: int = Field(..., description="Timestamp of the sensor reading since epoch")
+    pulse_duration_sensor_1: float = Field(..., description="Duration of the --'sensor 1' in milliseconds")
+    pulse_duration_sensor_2: float = Field(..., description="Duration of the --'sensor 2' in milliseconds")
+    sensor_time: int = Field(..., description="Timestamp of the sensor reading since epoch")
 
 
 
