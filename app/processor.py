@@ -21,6 +21,32 @@ def calculator(reading,mean_sensor_duration):
     return [timestamp, water_level, water_percentage, water_volume]
 
 
+def sensor_validation(reading):
+    s1= reading.pulse_duration_sensor_1
+    s2= (reading.pulse_duration_sensor_2) + 80 # Calibrating the second sensor to account for the 2cm difference
+
+    # Complete failure of both sensors
+    if s1 == 0 and s2 == 80:
+        raise HTTPException(status_code=400, detail="Both sensor readings are zero")
+    
+    if s1 >= 6900 and s2 >= 6980:
+        raise HTTPException(status_code=400, detail="Both sensor readings are too high >= 6900")
+
+    # Partial failure
+    if s1 == 0 or s2 == 80:
+        logging.warning(f'Sensors not working properly, Sensor 1: {s1} Sensor : {s2}')
+        mean_sensor_duration = s1 + s2
+        return mean_sensor_duration
+    
+    if s1 >=6900 or s2 >= 6980:
+        logging.warning(f"Sensors not working properly, Sensor 1: {s1} Sensor 2: {s2}")
+        mean_sensor_duration = s2 if s1 >= 6900 else s1
+        return mean_sensor_duration
+       
+    # If both sensors are working properly
+    mean_sensor_duration= round((s1 + s2) / 2, ndigits=1)
+    return mean_sensor_duration
+
 
 def input_validation(sensor_duration):
     logging.info('Starting input validation')

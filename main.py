@@ -6,7 +6,7 @@ from app.security import verify_api_key
 from fastapi import Depends, FastAPI, HTTPException
 from app.schemas import Post_Readings
 from app.csv_handler import latest_reading_read, latest_reading_write, past_fillings_read
-from app.processor import calculator, input_validation
+from app.processor import calculator, input_validation, sensor_validation
 
 
 logging.basicConfig(level=logging.INFO)
@@ -25,8 +25,8 @@ def latest_reading_get(_ = Depends(verify_api_key)):
 @app.post("/post_latest_reading")
 def latest_reading_post(reading: Post_Readings, _ = Depends(verify_api_key)):
     
-    # Averaging the sensor duration
-    mean_sensor_duration= round((reading.pulse_duration_sensor_1 + reading.pulse_duration_sensor_2) / 2, ndigits=1)
+    # Validating and averaging the sensor duration
+    mean_sensor_duration= sensor_validation(reading)
 
     #Validation
     mode,change,past_fillings,flag=input_validation(mean_sensor_duration)
