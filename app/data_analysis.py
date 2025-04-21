@@ -15,30 +15,35 @@ def past_filling_read():
         
         if file.empty:
             logging.info("Past filling read failed: File is empty")
-            
+            return 'NaN'
+
         file['Timestamp'] = pd.to_datetime(file['Timestamp'], format='%Y-%m-%d %H:%M:%S')
         mode=file['Mode'].astype('category')
         time=file['Timestamp']
         
-        mode_fillings = mode.isin(['FILLING']) & (mode.shift(1).isin(['FILLING']) | mode.shift(-1).isin(['FILLING']))
-        mode_noise= mode.isin(['DRAINING']) & (mode.shift(1).isin(['FILLING']) & mode.shift(-1).isin(['FILLING']))
+        mode_fillings = mode.isin(['FILLING']) & (mode.shift(-1).isin(['FILLING']) | mode.shift(1).isin(['FILLING','ADJUSTING']))
+        mode_noise= mode.isin(['DRAINING']) & (mode.shift(-1).isin(['ADJUSTING']) & mode.shift(1).isin(['FILLING']))
+        mode_adjusting = (mode.isin(['ADJUSTING'])) & (mode.shift(-1).isin(['FILLING']))
         mode_time=((time.iloc[-1] - time) < pd.Timedelta(Settings.MAX_TIME_TO_FILL))
         
 
-        fillings= file[mode_time & (mode_fillings | mode_noise)].copy()
+        fillings= file[mode_time & (mode_fillings | mode_noise | mode_adjusting)].copy()
         if fillings.empty:
             logging.info("Past filling read failed: No valid filling entries found")
+            return 'NaN'
             
         fillings['Filling Session']=(fillings['Timestamp'].diff() > pd.Timedelta(Settings.MAX_TIME_BETWEEN_TWO_FILLING_SESSIONS)).cumsum()
         
         session_list= list(fillings['Filling Session'].unique())
         if len(session_list) == 0:
             logging.info("Past filling read failed: No filling sessions found")
+            return 'NaN'
         
         last_session= fillings[fillings['Filling Session'] == session_list[-1]] 
-        last_session_fillings= last_session[last_session['Mode'].isin(['FILLING'])]
+        last_session_fillings= last_session[last_session['Mode'].isin(['FILLING','ADJUSTING'])]
         if len(last_session_fillings) < 2:
             logging.info("Past filling read failed: Not enough data points in the last session")
+            return 'NaN'
         
                 
         session_start_time= last_session_fillings['Timestamp'].min()
@@ -59,7 +64,7 @@ def past_filling_read():
     
     except:
         logging.error("Returning past filling record as 'NaN' as Error in past filling read")
-        return ['NaN']*8 # Return NaN values if any error occurs
+        return 'NaN'
     
 #-----------------------Past 72 hours analysis---------------------------
 def past_72_hours_analysis():

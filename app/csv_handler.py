@@ -8,7 +8,7 @@ from datetime import datetime
 import pandas as pd
 from app.utils import filling_time_format
 
-#-----------------------READ---------------------------
+#-----------------------READ DATA---------------------------
 def latest_reading_read():
     try:
         file_path = os.path.join (os.getcwd(), "data", "data.csv") 
@@ -60,8 +60,8 @@ def latest_reading_read():
         print(f"An error occurred: {e}")
         raise HTTPException(status_code=500, detail="An error occurred while reading the data file")
 
-# ---------------------WRITE--------------------------
-def latest_reading_write (values,mode,change,past_fillings, mean_sensor_duration, sensor_1_duration, sensor_2_duration, flag):
+# ---------------------WRITE DATA--------------------------
+def latest_reading_write (values,mode,change,past_fillings, final_sensor_duration, s1, s2_c, flag):
     
     # ----------------------------
     # Defining the data columns
@@ -69,9 +69,9 @@ def latest_reading_write (values,mode,change,past_fillings, mean_sensor_duration
     Water_Level = values[1]
     Water_Percentage = values[2]
     Water_Volume = values[3]
-    Mean_Sensor_Duration = mean_sensor_duration
-    Sensor_1_Duration= sensor_1_duration
-    Sensor_2_Duration= sensor_2_duration
+    Final_Sensor_Duration = final_sensor_duration
+    Sensor_1_Duration= s1
+    Sensor_2_Duration_C= s2_c
     Mode= mode
     Change= change
     Past_Filling_Summary= past_fillings
@@ -82,7 +82,7 @@ def latest_reading_write (values,mode,change,past_fillings, mean_sensor_duration
         file_path = os.path.join (os.getcwd(), "data", "data.csv")
         with open(file_path, 'a', newline='') as f:
             writer = csv.writer(f)      
-            writer.writerow([Timestamp, Water_Level, Water_Percentage, Water_Volume, Mode, Change, Mean_Sensor_Duration, Sensor_1_Duration, Sensor_2_Duration, Flag, Past_Filling_Summary])
+            writer.writerow([Timestamp, Water_Level, Water_Percentage, Water_Volume, Mode, Change, Final_Sensor_Duration, Sensor_1_Duration, Sensor_2_Duration_C, Flag, Past_Filling_Summary])
             logging.info(f"Sensor to CSV succesful")
         
     except Exception as e:

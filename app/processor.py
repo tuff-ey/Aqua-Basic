@@ -1,14 +1,14 @@
 from fastapi import HTTPException
 from app.csv_handler import latest_reading_read
 from app.data_analysis import past_filling_read
-from app.config import Settings, FILLING_RETRY_COUNT_DEFAULT, DRAINING_RETRY_COUNT_DEFAULT
+from app.config import Settings, FILLING_RETRY_COUNT_DEFAULT, DRAINING_RETRY_COUNT_DEFAULT, SENSOR_DISCREPANCY_DEFAULT
 import logging
-from datetime import datetime, timezone
+from datetime import datetime
 
 
-def calculator(reading,mean_sensor_duration):
+def calculator(reading,final_sensor_duration):
     
-    water_depth = round ((mean_sensor_duration * 0.0343) / 2, ndigits=1)
+    water_depth = round ((final_sensor_duration * 0.0343) / 2, ndigits=1)
 
     water_level = round (Settings.TANK_HEIGHT - water_depth, ndigits=1)
     
@@ -23,29 +23,48 @@ def calculator(reading,mean_sensor_duration):
 
 def sensor_validation(reading):
     s1= reading.pulse_duration_sensor_1
-    s2= (reading.pulse_duration_sensor_2) + 80 # Calibrating the second sensor to account for the 2cm difference
+    s2_c= (reading.pulse_duration_sensor_2) + Settings.SENSOR_2_CALIBRATION # Calibrating the second sensor to account for the 2cm difference
+
+    #-------------------------
+    global SENSOR_DISCREPANCY_DEFAULT # Imported global variable to keep track of sensor discrepancy
+    #-------------------------
 
     # Complete failure of both sensors
-    if s1 == 0 and s2 == 80:
+    if s1 == 0 and s2_c == Settings.SENSOR_2_CALIBRATION:
         raise HTTPException(status_code=400, detail="Both sensor readings are zero")
     
-    if s1 >= 6900 and s2 >= 6980:
-        raise HTTPException(status_code=400, detail="Both sensor readings are too high >= 6900")
+    if s1 >= Settings.MAX_POSSIBLE_SENSOR_DURATION and s2_c >= (Settings.MAX_POSSIBLE_SENSOR_DURATION + Settings.SENSOR_2_CALIBRATION):
+        raise HTTPException(status_code=400, detail="Both sensor readings are too high >= {Settings.MAX_POSSIBLE_SENSOR_DURATION}")
 
     # Partial failure
-    if s1 == 0 or s2 == 80:
-        logging.warning(f'Sensors not working properly, Sensor 1: {s1} Sensor : {s2}')
-        mean_sensor_duration = s1 + s2
-        return mean_sensor_duration
+    if s1 == 0 or s2_c == Settings.SENSOR_2_CALIBRATION:
+        logging.warning(f'Sensors not working properly, Sensor 1: {s1} Sensor : {s2_c}')
+        final_sensor_duration = s1 + s2_c
+        return final_sensor_duration
     
-    if s1 >=6900 or s2 >= 6980:
-        logging.warning(f"Sensors not working properly, Sensor 1: {s1} Sensor 2: {s2}")
-        mean_sensor_duration = s2 if s1 >= 6900 else s1
-        return mean_sensor_duration
+    if s1 >=Settings.MAX_POSSIBLE_SENSOR_DURATION or s2_c >= (Settings.MAX_POSSIBLE_SENSOR_DURATION + Settings.SENSOR_2_CALIBRATION):
+        logging.warning(f"Sensors not working properly, Sensor 1: {s1} Sensor 2: {s2_c}")
+        final_sensor_duration = s2_c if s1 >= Settings.MAX_POSSIBLE_SENSOR_DURATION else s1
+        return final_sensor_duration
        
+    # If the two sensor readings differ significantly
+    if abs(s1 - s2_c) > Settings.MAX_SENSOR_DISCREPANCY:
+        logging.warning(f"Sensor readings differ significantly, Sensor 1: {s1} Sensor 2: {s2_c}")
+        if SENSOR_DISCREPANCY_DEFAULT < Settings.MAX_RETRY_COUNT:
+            SENSOR_DISCREPANCY_DEFAULT += 1
+            raise HTTPException(status_code=400, detail=f"Sensor readings differ significantly, Sensor 1: {s1} Sensor 2: {s2_c}, retry count: {SENSOR_DISCREPANCY_DEFAULT}/{Settings.MAX_RETRY_COUNT}, RETRYING...")
+        else:
+            logging.warning(f"Max retry count exceeded, validation passed : ({s1} - {s2_c}) > {Settings.MAX_SENSOR_DISCREPANCY} !!")
+            
+    
     # If both sensors are working properly
-    mean_sensor_duration= round((s1 + s2) / 2, ndigits=1)
-    return mean_sensor_duration
+    if s1 > s2_c:
+        final_sensor_duration= round((s1*0.3) + (s2_c*0.7), ndigits=1)
+    else:
+        final_sensor_duration= round((s1 + s2_c) / 2, ndigits=1)
+    
+    
+    return final_sensor_duration, s1, s2_c
 
 
 def input_validation(sensor_duration):
@@ -57,6 +76,7 @@ def input_validation(sensor_duration):
     #-------------------------
     global FILLING_RETRY_COUNT_DEFAULT # Imported global variable to keep track of retry count
     global DRAINING_RETRY_COUNT_DEFAULT # Imported global variable to keep track of retry count
+    global SENSOR_DISCREPANCY_DEFAULT # Imported global variable to keep track of sensor discrepancy
     #-------------------------
     
     mode= None
@@ -77,11 +97,16 @@ def input_validation(sensor_duration):
         logging.info('Filling mode detected')
         if last_reading.mode == 'FIRST':
             mode= 'NaN'
+        elif last_reading.mode == 'DRAINING':
+            mode= 'ADJUSTING'
+            logging.info('Switching to ADJUSTING mode')
         else:
             mode= 'FILLING'
         
 
         if filling_level_difference < Settings.MIN_ALLOWED_FILLING_DIFFERENCE:
+            DRAINING_RETRY_COUNT_DEFAULT = 0
+            FILLING_RETRY_COUNT_DEFAULT = 0
             raise HTTPException(status_code=400, detail=f"Filling difference too small to validate ({filling_level_difference}) i.e < minimum allowed difference: {Settings.MIN_ALLOWED_FILLING_DIFFERENCE}")
 
         
@@ -105,6 +130,8 @@ def input_validation(sensor_duration):
         mode= 'DRAINING'
        
         if last_reading.water_level - latest_reading_level < Settings.MIN_ALLOWED_DRAINING_DIFFERENCE:
+            DRAINING_RETRY_COUNT_DEFAULT = 0
+            FILLING_RETRY_COUNT_DEFAULT = 0
             raise HTTPException(status_code=400, detail=f"Draining difference too small to validate ({draining_level_difference}) i.e < minimum allowed difference: {Settings.MIN_ALLOWED_DRAINING_DIFFERENCE}")
 
         
@@ -125,15 +152,21 @@ def input_validation(sensor_duration):
         if last_reading.mode == 'FILLING':
             logging.info('Tank was filling before this reading')
             read_filling=past_filling_read()
-            past_fillings= f"{read_filling[5]} cm added in ({read_filling[2]}) at {read_filling[-1]} cm/min"
+            if read_filling == 'NaN':
+                past_fillings= 'NaN'
+            else:
+                past_fillings= f"{read_filling[5]} cm added in ({read_filling[2]}) at {read_filling[-1]} cm/min"
     
     DRAINING_RETRY_COUNT_DEFAULT = 0
     FILLING_RETRY_COUNT_DEFAULT = 0
+    SENSOR_DISCREPANCY_DEFAULT = 0
+    
     if last_reading.mode == 'FIRST':
         change= 'NaN'
     else:
         change= filling_level_difference
 
+    
     logging.info(f"Validation passed successfully")
     return mode,change,past_fillings,flag
     

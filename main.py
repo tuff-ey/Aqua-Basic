@@ -26,16 +26,16 @@ def latest_reading_get(_ = Depends(verify_api_key)):
 def latest_reading_post(reading: Post_Readings, _ = Depends(verify_api_key)):
     
     # Validating and averaging the sensor duration
-    mean_sensor_duration= sensor_validation(reading)
+    final_sensor_duration, s1, s2_c= sensor_validation(reading)
 
     #Validation
-    mode,change,past_fillings,flag=input_validation(mean_sensor_duration)
+    mode,change,past_fillings,flag=input_validation(final_sensor_duration)
     
     #Calculation
-    values=calculator(reading,mean_sensor_duration)
+    values=calculator(reading,final_sensor_duration)
     
     #Writing to CSV
-    latest_reading_write(values,mode,change,past_fillings, mean_sensor_duration, reading.pulse_duration_sensor_1, reading.pulse_duration_sensor_2,flag)
+    latest_reading_write(values,mode,change,past_fillings, final_sensor_duration, s1, s2_c,flag)
     
     return reading
 
