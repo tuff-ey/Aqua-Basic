@@ -5,7 +5,7 @@ import datetime as dt
 class Post_Readings(BaseModel):
     sensor_1_duration: float = Field(..., description="Duration of the --'sensor 1' in milliseconds")
     sensor_2_duration: float = Field(..., description="Duration of the --'sensor 2' in milliseconds")
-    sensor_timestamp: dt.datetime = Field(..., description="Timestamp of the sensor reading since epoch")
+    sensor_timestamp: int = Field(..., description="Timestamp of the sensor reading since epoch")
 
 
 

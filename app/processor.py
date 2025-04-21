@@ -3,6 +3,7 @@ from app.csv_handler import latest_reading_read
 from app.data_analysis import past_filling_read
 from app.config import Settings, FILLING_RETRY_COUNT_DEFAULT, DRAINING_RETRY_COUNT_DEFAULT
 import logging
+from datetime import datetime, timezone
 
 
 def calculator(reading,mean_sensor_duration):
@@ -15,7 +16,7 @@ def calculator(reading,mean_sensor_duration):
     
     water_volume = round ((3.14 * (Settings.TANK_RADIUS ** 2) * water_level) / 1000, ndigits=1)
     
-    timestamp= reading.sensor_timestamp.strftime("%Y-%m-%d %H:%M:%S")
+    timestamp = datetime.fromtimestamp (reading.sensor_timestamp).strftime("%Y-%m-%d %H:%M:%S")
     
     return [timestamp, water_level, water_percentage, water_volume]
 
