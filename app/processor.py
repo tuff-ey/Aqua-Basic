@@ -1,5 +1,5 @@
 from fastapi import HTTPException
-from app.csv_handler import latest_reading_read
+from app.csv_handler import latest_reading_read, all_sensor_readings_write
 from app.data_analysis import past_filling_read
 from app.config import Settings, FILLING_RETRY_COUNT_DEFAULT, DRAINING_RETRY_COUNT_DEFAULT, SENSOR_DISCREPANCY_DEFAULT
 import logging
@@ -23,11 +23,14 @@ def calculator(reading,final_sensor_duration):
 
 def sensor_validation(reading):
     s1= reading.pulse_duration_sensor_1
-    s2_c= (reading.pulse_duration_sensor_2) + Settings.SENSOR_2_CALIBRATION # Calibrating the second sensor to account for the 2cm difference
+    s2= reading.pulse_duration_sensor_2
+    s2_c= s2 + Settings.SENSOR_2_CALIBRATION # Calibrating the second sensor to account for the 2cm difference
 
     #-------------------------
     global SENSOR_DISCREPANCY_DEFAULT # Imported global variable to keep track of sensor discrepancy
     #-------------------------
+
+    all_sensor_readings_write(s1, s2, s2_c, reading.sensor_time)
 
     # Complete failure of both sensors
     if s1 == 0 and s2_c == Settings.SENSOR_2_CALIBRATION:

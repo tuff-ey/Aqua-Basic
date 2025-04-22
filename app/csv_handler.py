@@ -140,3 +140,18 @@ def past_fillings_read():
     except FileNotFoundError:
         print("File not found. Please check the file path.")
         raise HTTPException(status_code=404, detail="Past filling file not found")
+
+
+# -----------------------WRITE ALL SENSOR READINGS---------------------------
+def all_sensor_readings_write(s1,s2,s2_c, time):
+    
+    try:
+        file_path = os.path.join(os.getcwd(), "data", "sensor_readings.csv")
+        with open(file_path, 'a', newline='') as f:
+            writer = csv.writer(f)      
+            writer.writerow([ time, s1,s2,s2_c])
+            logging.info(f"Sensor readings successfully stored")
+        
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        raise HTTPException(status_code=500, detail="An error occurred while writing to the sensor file")
