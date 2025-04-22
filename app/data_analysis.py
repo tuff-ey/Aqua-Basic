@@ -2,11 +2,11 @@ import logging
 import os
 import pandas as pd
 from app.config import Settings
-from app.csv_handler import past_fillings_write
+from app.csv_handler import recent_fillings_write
 from app.utils import filling_time_format
 
 #-------------Past Fillings Analysis-----------------
-def past_filling_read():
+def recent_filling_calculation():
     
     try: 
         file_path = os.path.join(os.getcwd(), "data", "data.csv")
@@ -28,6 +28,7 @@ def past_filling_read():
         
 
         fillings= file[mode_time & (mode_fillings | mode_noise | mode_adjusting)].copy()
+        
         if fillings.empty:
             logging.info("Past filling read failed: No valid filling entries found")
             return 'NaN'
@@ -35,12 +36,14 @@ def past_filling_read():
         fillings['Filling Session']=(fillings['Timestamp'].diff() > pd.Timedelta(Settings.MAX_TIME_BETWEEN_TWO_FILLING_SESSIONS)).cumsum()
         
         session_list= list(fillings['Filling Session'].unique())
+        
         if len(session_list) == 0:
             logging.info("Past filling read failed: No filling sessions found")
             return 'NaN'
         
         last_session= fillings[fillings['Filling Session'] == session_list[-1]] 
         last_session_fillings= last_session[last_session['Mode'].isin(['FILLING','ADJUSTING'])]
+        
         if len(last_session_fillings) < 2:
             logging.info("Past filling read failed: Not enough data points in the last session")
             return 'NaN'
@@ -58,12 +61,12 @@ def past_filling_read():
         logging.info("Session data calculated, ready to return")
 
         filling_values = [session_start_time, session_end_time, session_duration, session_start_level, session_end_level, water_level_added, volume_added, rate_of_fill]
-        past_fillings_write(filling_values)
+        recent_fillings_write(filling_values)
 
         return filling_values
     
     except:
-        logging.error("Returning past filling record as 'NaN' as Error in past filling read")
+        logging.error("Returning past filling record as 'NaN' as Error in past filling calculation")
         return 'NaN'
     
 #-----------------------Past 72 hours analysis---------------------------

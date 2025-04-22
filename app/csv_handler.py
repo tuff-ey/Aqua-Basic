@@ -7,6 +7,8 @@ from app.schemas import First_Reading, Get_Readings
 from datetime import datetime
 import pandas as pd
 from app.utils import filling_time_format
+from pytz import timezone
+IST = timezone('Asia/Kolkata')
 
 #-----------------------READ DATA---------------------------
 def latest_reading_read():
@@ -91,7 +93,7 @@ def latest_reading_write (values,mode,change,past_fillings, final_sensor_duratio
     
 
 #-----------------------WRITE TO PAST FILLINGS---------------------------
-def past_fillings_write(values):
+def recent_fillings_write(values):
     try:
         file_path = os.path.join(os.getcwd(), "data", "past_fillings.csv")
         with open(file_path, 'a', newline='') as f:
@@ -129,8 +131,8 @@ def past_fillings_read():
             Water_Level_Added = float(last_row[5])
             Volume_Added = float(last_row[6])
             Rate_of_Fill = float(last_row[7])
-            Minutes_Since_Filling = datetime.now() - pd.to_datetime(End_Time)
-            Time_Since_Filling = filling_time_format(Minutes_Since_Filling.total_seconds()/60) # in minutes and seconds
+            Minutes_Since_Filling = round((datetime.now(IST) - pd.to_datetime(End_Time).tz_localize(IST)).total_seconds() / 60, ndigits=1) # in minutes
+            Time_Since_Filling = filling_time_format(Minutes_Since_Filling) # in minutes and seconds
             # ------------------------------------
 
             session_summary = f'{Time_Since_Filling} ago: {Water_Level_Added} cm or {Volume_Added} L added for {Duration} at {Rate_of_Fill} cm/min)'
