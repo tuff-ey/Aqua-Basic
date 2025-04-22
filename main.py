@@ -66,3 +66,13 @@ def get_past_fillings_file():
         raise HTTPException(status_code=404, detail="File not found")
     
     return FileResponse(file_path, media_type='text/csv', filename="past_fillings.csv")
+
+@app.get("/files/sensor_readings")
+def get_sensor_readings_file():
+    
+    file_path = os.path.join (os.getcwd(), "data", "sensor_readings.csv")
+
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="File not found")
+    
+    return FileResponse(file_path, media_type='text/csv', filename="sensor_readings.csv")

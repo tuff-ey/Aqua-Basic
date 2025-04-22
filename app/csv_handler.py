@@ -144,12 +144,12 @@ def past_fillings_read():
 
 # -----------------------WRITE ALL SENSOR READINGS---------------------------
 def all_sensor_readings_write(s1,s2,s2_c, time):
-    
+    Time = datetime.fromtimestamp (time).strftime("%Y-%m-%d %H:%M:%S")
     try:
         file_path = os.path.join(os.getcwd(), "data", "sensor_readings.csv")
         with open(file_path, 'a', newline='') as f:
             writer = csv.writer(f)      
-            writer.writerow([ time, s1,s2,s2_c])
+            writer.writerow([ Time, s1,s2,s2_c])
             logging.info(f"Sensor readings successfully stored")
         
     except Exception as e:
