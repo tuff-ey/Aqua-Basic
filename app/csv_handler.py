@@ -40,10 +40,22 @@ def latest_reading_read():
             Water_Percentage = float(last_row[2])
             Water_Volume = float(last_row[3])
             Filling_Time = str(filling_time_format( round(((Settings.MAX_WATER_LEVEL_CUTOFF - Water_Level)) / Settings.RATE_OF_FILLING, ndigits=1) ))
-            Mode= str(last_row[4])
-            # ------------------------------------
+            Last_Mode = str(last_row[4])
+            
+            # Mode based on time elapsed
+            time_since_last_reading = round((datetime.now(IST) - pd.to_datetime(Timestamp).tz_localize(IST)).total_seconds() / 60, ndigits=1)
+            if Last_Mode == 'FILLING' and time_since_last_reading > 2:
+                Mode = "ADJUSTING"
+            
+            else:
+                Mode = str(last_row[4])
 
-            row_number=0
+            # Flag based on leak detection
+            if last_row[9] == "!! LEAK !!":
+                Flag= "WARNING: Leak suspected, Inspect immediately! "
+            else:
+                Flag= 'System Operating Normally'
+            # ------------------------------------
 
             return Get_Readings(
                 timestamp= Timestamp,
@@ -51,7 +63,8 @@ def latest_reading_read():
                 water_percentage= Water_Percentage,
                 water_volume= Water_Volume,
                 filling_time= Filling_Time,
-                mode= Mode
+                mode= Mode,
+                flag= Flag
             )
         
     except FileNotFoundError:
@@ -63,7 +76,7 @@ def latest_reading_read():
         raise HTTPException(status_code=500, detail="An error occurred while reading the data file")
 
 # ---------------------WRITE DATA--------------------------
-def latest_reading_write (values,mode,change,past_fillings, final_sensor_duration, s1, s2_c, flag):
+def latest_reading_write (values,mode,change,past_fillings, final_sensor_duration, s1, s2_c, flag, leak):
     
     # ----------------------------
     # Defining the data columns
@@ -77,7 +90,12 @@ def latest_reading_write (values,mode,change,past_fillings, final_sensor_duratio
     Mode= mode
     Change= change
     Past_Filling_Summary= past_fillings
-    Flag= flag
+    
+    # Flag based on leak detection
+    if leak == True:
+        Flag= "!! LEAK !!"
+    else:
+        Flag= flag
     # ----------------------------
 
     try:

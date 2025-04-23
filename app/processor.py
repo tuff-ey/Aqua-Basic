@@ -4,6 +4,7 @@ from app.data_analysis import recent_filling_calculation
 from app.config import Settings, FILLING_RETRY_COUNT_DEFAULT, DRAINING_RETRY_COUNT_DEFAULT, SENSOR_DISCREPANCY_DEFAULT
 import logging
 from datetime import datetime
+import pandas as pd
 
 
 def calculator(reading,final_sensor_duration):
@@ -30,7 +31,7 @@ def sensor_validation(reading):
     global SENSOR_DISCREPANCY_DEFAULT # Imported global variable to keep track of sensor discrepancy
     #-------------------------
 
-    all_sensor_readings_write(s1, s2, s2_c, reading.sensor_time)
+    #all_sensor_readings_write(s1, s2, s2_c, reading.sensor_time)
 
     # Complete failure of both sensors
     if s1 == 0 and s2_c == Settings.SENSOR_2_CALIBRATION:
@@ -120,20 +121,20 @@ def input_validation(sensor_duration):
         if past_reading.mode == 'DRAINING':
             logging.info('Change in mode detected')
             
-            if filling_level_difference < Settings.MIN_ALLOWED_FIRST_PASS_DIFFERENCE:
+            if filling_level_difference <= Settings.MIN_ALLOWED_FIRST_PASS_DIFFERENCE:
                 DRAINING_RETRY_COUNT_DEFAULT = 0
                 FILLING_RETRY_COUNT_DEFAULT = 0
                 logging.info(f"First pass filling difference too small to validate ({filling_level_difference}), minimum allowed difference: {Settings.MIN_ALLOWED_FIRST_PASS_DIFFERENCE}")
                 raise HTTPException(status_code=400, detail=f"First pass filling difference too small to validate ({filling_level_difference}), minimum allowed difference: {Settings.MIN_ALLOWED_FIRST_PASS_DIFFERENCE}")
 
          
-            if filling_level_difference > Settings.MAX_ALLOWED_FIRST_PASS_DIFFERENCE:
+            if filling_level_difference > Settings.MIN_ALLOWED_FIRST_PASS_DIFFERENCE:
                 
-                if FILLING_RETRY_COUNT_DEFAULT < Settings.MAX_RETRY_COUNT:
+                if not FILLING_RETRY_COUNT_DEFAULT >= Settings.MAX_RETRY_COUNT:
                     FILLING_RETRY_COUNT_DEFAULT += 1
                     print(f'-------RETRY {FILLING_RETRY_COUNT_DEFAULT}----------')
-                    logging.info(f"First pass filling too fast ({filling_level_difference}), allowed change is {Settings.MAX_ALLOWED_FIRST_PASS_DIFFERENCE}, retry count: {FILLING_RETRY_COUNT_DEFAULT}/{Settings.MAX_RETRY_COUNT}, RETRYING...")
-                    raise HTTPException(status_code=400, detail=f"Steep filling detected: ({filling_level_difference}), allowed is {Settings.MAX_ALLOWED_FIRST_PASS_DIFFERENCE}, retry count: {FILLING_RETRY_COUNT_DEFAULT}/{Settings.MAX_RETRY_COUNT}, RETRYING...")
+                    logging.info(f"First pass filling too fast ({filling_level_difference}), retry count: {FILLING_RETRY_COUNT_DEFAULT}/{Settings.MAX_RETRY_COUNT}, RETRYING...")
+                    raise HTTPException(status_code=400, detail=f"Steep filling detected: ({filling_level_difference}), retry count: {FILLING_RETRY_COUNT_DEFAULT}/{Settings.MAX_RETRY_COUNT}, RETRYING...")
                 else:
                     logging.warning(f"Max retry count exceeded, validation passed : {filling_level_difference}")
                     flag= 'RED'
@@ -141,7 +142,7 @@ def input_validation(sensor_duration):
         
         # Subsequent pass validation 
         else:
-            if filling_level_difference < Settings.MIN_ALLOWED_DIFFERENCE:
+            if filling_level_difference <= Settings.MIN_ALLOWED_DIFFERENCE:
                 DRAINING_RETRY_COUNT_DEFAULT = 0
                 FILLING_RETRY_COUNT_DEFAULT = 0
                 logging.info(f"Filling difference too small to validate ({filling_level_difference}), minimum allowed difference: {Settings.MIN_ALLOWED_DIFFERENCE}")
@@ -152,8 +153,8 @@ def input_validation(sensor_duration):
                 if FILLING_RETRY_COUNT_DEFAULT < Settings.MAX_RETRY_COUNT:
                     FILLING_RETRY_COUNT_DEFAULT += 1
                     print(f'-------{FILLING_RETRY_COUNT_DEFAULT}----------')
-                    logging.info(f"Filling too fast ({filling_level_difference}), allowed change is {Settings.MAX_ALLOWED_DIFFERENCE}, retry count: {FILLING_RETRY_COUNT_DEFAULT}/{Settings.MAX_RETRY_COUNT}, RETRYING...")
-                    raise HTTPException(status_code=400, detail=f"Steep filling detected: ({filling_level_difference}), allowed is {Settings.MAX_ALLOWED_DIFFERENCE}, retry count: {FILLING_RETRY_COUNT_DEFAULT}/{Settings.MAX_RETRY_COUNT}, RETRYING...")
+                    logging.info(f"Filling too fast ({filling_level_difference}), allowed change is less than {Settings.MAX_ALLOWED_DIFFERENCE}, retry count: {FILLING_RETRY_COUNT_DEFAULT}/{Settings.MAX_RETRY_COUNT}, RETRYING...")
+                    raise HTTPException(status_code=400, detail=f"Steep filling detected: ({filling_level_difference}), allowed is less than {Settings.MAX_ALLOWED_DIFFERENCE}, retry count: {FILLING_RETRY_COUNT_DEFAULT}/{Settings.MAX_RETRY_COUNT}, RETRYING...")
                 else:
                     logging.warning(f"Max retry count exceeded, validation passed : {filling_level_difference}")
                     flag= 'RED'
@@ -163,14 +164,14 @@ def input_validation(sensor_duration):
 
 #Draining tank validation
     else:
-        logging.info('Mode --> Draining')
+        logging.info('Mode --> DRAINING')
         mode= 'DRAINING'
 
         # First pass validation (Change in mode from filling/adjusting to draining)
         if past_reading.mode == 'FILLING' or past_reading.mode == 'ADJUSTING':
             logging.info('Change in mode detected')
        
-            if draining_level_difference < Settings.MIN_ALLOWED_FIRST_PASS_DIFFERENCE:
+            if draining_level_difference <= Settings.MIN_ALLOWED_FIRST_PASS_DIFFERENCE:
                 DRAINING_RETRY_COUNT_DEFAULT = 0
                 FILLING_RETRY_COUNT_DEFAULT = 0
                 logging.info(f"First pass draining difference too small to validate ({draining_level_difference}), minimum allowed difference: {Settings.MIN_ALLOWED_FIRST_PASS_DIFFERENCE}")
@@ -182,8 +183,8 @@ def input_validation(sensor_duration):
                 if DRAINING_RETRY_COUNT_DEFAULT < Settings.MAX_RETRY_COUNT:
                     DRAINING_RETRY_COUNT_DEFAULT += 1
                     print(f'-------RETRY {DRAINING_RETRY_COUNT_DEFAULT}----------')
-                    logging.info(f"First pass draining too fast ({draining_level_difference}), allowed change is {Settings.MAX_ALLOWED_FIRST_PASS_DIFFERENCE}, retry count: {DRAINING_RETRY_COUNT_DEFAULT}/{Settings.MAX_RETRY_COUNT}, RETRYING...")
-                    raise HTTPException(status_code=400, detail=f"Draining too fast ({draining_level_difference}), allowed change is {Settings.MAX_ALLOWED_FIRST_PASS_DIFFERENCE}, retry count: {DRAINING_RETRY_COUNT_DEFAULT}/{Settings.MAX_RETRY_COUNT}, RETRYING...")
+                    logging.info(f"First pass draining too fast ({draining_level_difference}), allowed change is less than {Settings.MAX_ALLOWED_FIRST_PASS_DIFFERENCE}, retry count: {DRAINING_RETRY_COUNT_DEFAULT}/{Settings.MAX_RETRY_COUNT}, RETRYING...")
+                    raise HTTPException(status_code=400, detail=f"Draining too fast ({draining_level_difference}), allowed change is less than {Settings.MAX_ALLOWED_FIRST_PASS_DIFFERENCE}, retry count: {DRAINING_RETRY_COUNT_DEFAULT}/{Settings.MAX_RETRY_COUNT}, RETRYING...")
                 else:
                     logging.warning(f"Max retry count exceeded, validation passed : {draining_level_difference}")
                     flag= 'RED'
@@ -191,7 +192,7 @@ def input_validation(sensor_duration):
 
         # Subsequent pass validation
         else:
-            if draining_level_difference < Settings.MIN_ALLOWED_DIFFERENCE:
+            if draining_level_difference <= Settings.MIN_ALLOWED_DIFFERENCE:
                 DRAINING_RETRY_COUNT_DEFAULT = 0
                 FILLING_RETRY_COUNT_DEFAULT = 0
                 logging.info(f"Draining difference too small to validate ({draining_level_difference}), minimum allowed difference: {Settings.MIN_ALLOWED_DIFFERENCE}")
@@ -203,8 +204,8 @@ def input_validation(sensor_duration):
                 if DRAINING_RETRY_COUNT_DEFAULT < Settings.MAX_RETRY_COUNT:
                     DRAINING_RETRY_COUNT_DEFAULT += 1
                     print(f'-------RETRY {DRAINING_RETRY_COUNT_DEFAULT}----------')
-                    logging.info(f"Draining too fast ({draining_level_difference}), allowed change is {Settings.MAX_ALLOWED_DIFFERENCE}, retry count: {DRAINING_RETRY_COUNT_DEFAULT}/{Settings.MAX_RETRY_COUNT}, RETRYING...")
-                    raise HTTPException(status_code=400, detail=f"Draining too fast ({draining_level_difference}), allowed change is {Settings.MAX_ALLOWED_DIFFERENCE}, retry count: {DRAINING_RETRY_COUNT_DEFAULT}/{Settings.MAX_RETRY_COUNT}, RETRYING...")
+                    logging.info(f"Draining too fast ({draining_level_difference}), allowed change is less than {Settings.MAX_ALLOWED_DIFFERENCE}, retry count: {DRAINING_RETRY_COUNT_DEFAULT}/{Settings.MAX_RETRY_COUNT}, RETRYING...")
+                    raise HTTPException(status_code=400, detail=f"Draining too fast ({draining_level_difference}), allowed change is less than {Settings.MAX_ALLOWED_DIFFERENCE}, retry count: {DRAINING_RETRY_COUNT_DEFAULT}/{Settings.MAX_RETRY_COUNT}, RETRYING...")
                 else:
                     logging.warning(f"Max retry count exceeded, validation passed : {draining_level_difference}")
                     flag= 'RED'
@@ -232,9 +233,9 @@ def input_validation(sensor_duration):
     else:
         change= 'NaN'
 
-    
+  
     logging.info(f"------Water level validation successfully passed------")
-    return mode,change,past_fillings,flag
+    return mode,change,past_fillings,flag,past_reading.timestamp
     
 
 

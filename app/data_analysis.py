@@ -1,5 +1,6 @@
 import logging
 import os
+from fastapi import HTTPException
 import pandas as pd
 from app.config import Settings
 from app.csv_handler import recent_fillings_write
@@ -51,7 +52,7 @@ def recent_filling_calculation():
                 
         session_start_time= last_session_fillings['Timestamp'].min()
         session_end_time= last_session_fillings['Timestamp'].max()
-        duration= round(((session_end_time - session_start_time).total_seconds() / 60), ndigits=1) # raw output, needs to be formatted next
+        duration= round(((session_end_time - session_start_time).total_seconds() / 60) + Settings.FILLING_DURATION_CALIBRATION_TIME, ndigits=1) # in mins
         session_duration= filling_time_format(duration) # in minutes and seconds
         session_start_level= last_session_fillings['Water Level'].min()
         session_end_level= last_session_fillings['Water Level'].max()
@@ -69,6 +70,43 @@ def recent_filling_calculation():
         logging.error("Returning past filling record as 'NaN' as Error in past filling calculation")
         return 'NaN'
     
-#-----------------------Past 72 hours analysis---------------------------
-def past_72_hours_analysis():
-    pass
+#-----------------------Leak detection---------------------------
+def leak_check(past_reading_time, sensor_time, min_time=3, max_time=6, min_change=-1.6, max_change=-1):
+    
+    previous_timestamp = pd.to_datetime(past_reading_time)
+    current_timestamp = pd.to_datetime(sensor_time)
+    difference= (current_timestamp - previous_timestamp).total_seconds() / 60 # in minutes
+    
+    if min_time <= difference <= max_time:
+        logging.info("Time difference is within the acceptable range for leak detection")
+        try: 
+            file_path = os.path.join(os.getcwd(), "data", "data.csv")
+            file=pd.read_csv(file_path).dropna(how='all')
+                    
+            if file.empty:
+                logging.info("Leak check failed: File is empty")
+                raise HTTPException(status_code=404, detail="File is empty")
+
+            file=file.tail(5)
+            file['Timestamp']=pd.to_datetime(file['Timestamp'])
+            file['Time Difference']= (file['Timestamp'].diff()).dt.total_seconds()/60 # in minutes
+            file=file.tail(3)
+            time_difference= file['Time Difference'].between(min_time,max_time).all()
+            change= file['Change'].between(min_change,max_change).all()
+            leak = time_difference & change
+            logging.info(f"Leak check: leak = {leak}")
+            if leak== True:
+                logging.info("----->Leak detected<-----")
+                return leak
+            
+            else:
+                logging.info("No leak detected")
+                return False
+
+        except:
+            logging.error("Leak check failed: Error in leak check calculation")
+            raise HTTPException(status_code=500, detail="Error in leak check calculation")
+    
+    else:
+        logging.info("Time difference is outside the acceptable range for leak detection")
+        return False

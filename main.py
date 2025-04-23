@@ -2,6 +2,7 @@ import logging
 import os
 
 from fastapi.responses import FileResponse
+from app.data_analysis import leak_check
 from app.security import verify_api_key
 from fastapi import Depends, FastAPI, HTTPException
 from app.schemas import Post_Readings
@@ -28,15 +29,20 @@ def latest_reading_post(reading: Post_Readings, _ = Depends(verify_api_key)):
     # Validating and averaging the sensor duration
     final_sensor_duration, s1, s2_c= sensor_validation(reading)
 
-    #Validation
-    mode,change,past_fillings,flag=input_validation(final_sensor_duration)
+    # Validation
+    mode,change,past_fillings,flag,past_reading_time=input_validation(final_sensor_duration)
     
-    #Calculation
+    # Calculation
     values=calculator(reading,final_sensor_duration)
+   
+    # Leak check
+    logging.info("Checking for leak...")
+    leak= leak_check(past_reading_time, values[0])
     
-    #Writing to CSV
-    latest_reading_write(values,mode,change,past_fillings, final_sensor_duration, s1, s2_c,flag)
-    
+    # Writing to CSV
+    latest_reading_write(values,mode,change,past_fillings, final_sensor_duration, s1, s2_c,flag,leak)
+  
+
     return reading
 
 @app.get("/past_fillings")
