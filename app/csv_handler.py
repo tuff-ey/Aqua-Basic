@@ -28,10 +28,13 @@ def latest_reading_read():
                 water_level=0
                 mode="FIRST"
                 row_number=0
+            
+                Timestamp = (datetime.now()).strftime("%Y-%m-%d %H:%M:%S")
 
                 return First_Reading(
                     water_level= water_level,
-                    mode= mode
+                    mode= mode,
+                    timestamp= Timestamp
                 )
             #------------------------------------
             # Defining the data columns

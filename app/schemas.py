@@ -21,3 +21,4 @@ class Get_Readings(BaseModel):
 class First_Reading(BaseModel):
     water_level: float = Field(..., description="By default, value is 0")
     mode: str = Field(..., description="Default mode is Draining")
+    timestamp: str = Field(..., description="Timestamp of the water level recorded")
