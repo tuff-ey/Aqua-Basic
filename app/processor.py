@@ -233,9 +233,10 @@ def input_validation(sensor_duration):
     else:
         change= 'NaN'
 
+    past_timestamp=past_reading.timestamp
   
     logging.info(f"------Water level validation successfully passed------")
-    return mode,change,past_fillings,flag,past_reading.timestamp
+    return mode,change,past_fillings,flag,past_timestamp
     
 
 
