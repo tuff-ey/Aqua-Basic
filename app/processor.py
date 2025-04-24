@@ -211,8 +211,9 @@ def input_validation(sensor_duration):
                     flag= 'RED'
                     DRAINING_RETRY_COUNT_DEFAULT = 0
 
-        # Calculating filling data         
-        if past_reading.mode == 'FILLING':
+        # Calculating filling data
+        logging.info(f'Past mode == {past_reading.last_mode_csv}')         
+        if past_reading.last_mode_csv == 'FILLING':
             logging.info('Change in mood, FILLING to DRAINING, calculating the filling data')
             read_filling=recent_filling_calculation()
 

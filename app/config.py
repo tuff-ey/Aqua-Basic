@@ -10,7 +10,7 @@ class Settings():
     MIN_ALLOWED_DIFFERENCE: float = 1 # Minimum allowed filling difference in cm
     MAX_ALLOWED_FIRST_PASS_DIFFERENCE: float = 2.5 # Maximum allowed filling difference in cm
     MAX_ALLOWED_DIFFERENCE: float = 2 # Maximum allowed draining difference in cm
-    RATE_OF_FILLING: float = 1.18 # Rate of filling in cm/min
+    RATE_OF_FILLING: float = 1.21 # Rate of filling in cm/min
     MAX_TIME_TO_FILL: str = '1h,25m' # Maximum time to fill the tank from (5cm to 105cm) in hours and minutes
     MAX_TIME_BETWEEN_TWO_FILLING_SESSIONS: str = '5m' # Maximum time between two filling sessions in hours and minutes
     MAX_RETRY_COUNT: int = 2 # Maximum retry count for validation

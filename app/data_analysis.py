@@ -58,7 +58,7 @@ def recent_filling_calculation():
         session_end_level= last_session_fillings['Water Level'].max()
         water_level_added= round(session_end_level - session_start_level, ndigits=1) # in cm
         volume_added= round(last_session_fillings['Water Volume'].max() - last_session_fillings['Water Volume'].min(), ndigits=1) # in liters
-        rate_of_fill= round((water_level_added / duration if duration > 0 else 0), ndigits=1) # in cm/min
+        rate_of_fill= round((water_level_added / duration if duration > 0 else 0), ndigits=2) # in cm/min
         logging.info("Session data calculated, ready to return")
 
         filling_values = [session_start_time, session_end_time, session_duration, session_start_level, session_end_level, water_level_added, volume_added, rate_of_fill]

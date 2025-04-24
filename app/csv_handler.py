@@ -55,9 +55,9 @@ def latest_reading_read():
 
             # Flag based on leak detection
             if last_row[9] == "!! LEAK !!":
-                Flag= "WARNING: Leak suspected, Inspect immediately! "
+                Flag= "WARNING: Leak suspected, Inspect immediately!"
             else:
-                Flag= 'System Operating Normally'
+                Flag= 'No Signs of Leakage'
             # ------------------------------------
 
             return Get_Readings(
@@ -67,7 +67,8 @@ def latest_reading_read():
                 water_volume= Water_Volume,
                 filling_time= Filling_Time,
                 mode= Mode,
-                flag= Flag
+                flag= Flag,
+                last_mode_csv= Last_Mode
             )
         
     except FileNotFoundError:
@@ -156,7 +157,7 @@ def past_fillings_read():
             Time_Since_Filling = filling_time_format(Minutes_Since_Filling) # in minutes and seconds
             # ------------------------------------
 
-            session_summary = f'{Time_Since_Filling} ago: {Water_Level_Added} cm or {Volume_Added} L added for {Duration} at {Rate_of_Fill} cm/min)'
+            session_summary = f'{Time_Since_Filling} ago: {Water_Level_Added} cm or {Volume_Added} L added for {Duration} at {Rate_of_Fill} cm/min'
             logging.info("Past Filling summary from CSV read successfully")
             return session_summary
    
