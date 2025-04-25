@@ -6,7 +6,7 @@ from app.config import Settings
 from app.schemas import First_Reading, Get_Readings
 from datetime import datetime
 import pandas as pd
-from app.utils import filling_time_format
+from app.utils import filling_time_format, backup_time
 from pytz import timezone
 IST = timezone('Asia/Kolkata')
 
@@ -42,8 +42,9 @@ def latest_reading_read():
             Water_Level = float(last_row[1])
             Water_Percentage = float(last_row[2])
             Water_Volume = float(last_row[3])
-            Filling_Time = str(filling_time_format( round(((Settings.MAX_WATER_LEVEL_CUTOFF - Water_Level)) / Settings.RATE_OF_FILLING, ndigits=1) ))
+            Filling_Time = str(filling_time_format( round((Settings.MAX_WATER_LEVEL_CUTOFF - Water_Level) / Settings.RATE_OF_FILLING, ndigits=1) ))
             Last_Mode = str(last_row[4])
+            Estimated_Water_Coverage = backup_time(Water_Level)
             
             # Mode based on time elapsed
             time_since_last_reading = round((datetime.now(IST) - pd.to_datetime(Timestamp).tz_localize(IST)).total_seconds() / 60, ndigits=1)
@@ -68,7 +69,8 @@ def latest_reading_read():
                 filling_time= Filling_Time,
                 mode= Mode,
                 flag= Flag,
-                last_mode_csv= Last_Mode
+                last_mode_csv= Last_Mode,
+                estimated_water_coverage= Estimated_Water_Coverage
             )
         
     except FileNotFoundError:
@@ -179,3 +181,18 @@ def all_sensor_readings_write(s1,s2,s2_c, time):
     except Exception as e:
         print(f"An error occurred: {e}")
         raise HTTPException(status_code=500, detail="An error occurred while writing to the sensor file")
+
+#-----------------------Weekly analysis---------------------------
+def weekly_analysis(df):
+    try:
+        file_path = os.path.join(os.getcwd(), "data", "weekly_report.csv")
+        df.to_csv(file_path, mode='w')    
+        logging.info(f"Weekly analysis successfully stored")
+    
+    except Exception as e:
+        logging.error(f"Weekly analysis save failed: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error writing weekly report: {str(e)}"
+        )
+    

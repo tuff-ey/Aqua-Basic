@@ -1,13 +1,15 @@
+import io
 import logging
 import os
 
-from fastapi.responses import FileResponse
-from app.data_analysis import leak_check
+from fastapi.responses import FileResponse, StreamingResponse
+from app.data_analysis import leak_check, past_week
 from app.security import verify_api_key
 from fastapi import Depends, FastAPI, HTTPException
 from app.schemas import Post_Readings
 from app.csv_handler import latest_reading_read, latest_reading_write, past_fillings_read
 from app.processor import calculator, input_validation, sensor_validation
+import pandas as pd
 
 
 logging.basicConfig(level=logging.INFO)
@@ -19,7 +21,7 @@ def latest_reading_get(_ = Depends(verify_api_key)):
     
     #Reading from CSV
     get_reading= latest_reading_read()
-    
+  
     return get_reading
 
 
@@ -52,6 +54,32 @@ def past_fillings_get(_ = Depends(verify_api_key)):
     past_fillings= past_fillings_read()
     
     return past_fillings
+
+@app.get("/past_week_analysis")
+def past_week_analysis(_ = Depends(verify_api_key)):
+
+    # Calculation and writing to CSV
+    past_week()
+
+    try:
+        # Export the report file
+        file_path = os.path.join (os.getcwd(), "data", "weekly_report.csv")
+
+        df = pd.read_csv(file_path)
+
+        csv_buffer = io.StringIO()
+        df.to_csv(csv_buffer, index=False)
+        csv_buffer.seek(0)
+        
+        return StreamingResponse(
+            csv_buffer,
+            media_type="text/csv",
+            headers={"Content-Disposition": "attachment; filename=weekly_report.csv"}
+        )
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Export failed: {str(e)}")
+
 
 @app.get("/files/data")
 def get_data_file():

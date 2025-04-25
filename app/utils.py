@@ -1,6 +1,12 @@
+import logging
+import os
+import pandas as pd
+from fastapi import HTTPException
+from app.config import Settings
 
 
 
+# Decimal time to HH:MM:SS format
 
 
 def filling_time_format(t):
@@ -35,3 +41,32 @@ def filling_time_format(t):
                         
     else:
         return '0 mins 0 seconds'
+    
+
+# Average volume
+def average_volume(series):
+    total_change= abs(series.sum())
+    return round ((3.14 * (Settings.TANK_RADIUS ** 2) * total_change) / 1000, ndigits=1)
+
+# Rate of drainage
+def draining_rate(series):
+    total_change=abs(series.sum())
+    total_time= (series.index.max() - series.index.min()).total_seconds()/3600 # in hours
+    return round(total_change/max(total_time,0.01), ndigits=2)
+
+# Frequency
+def frequency(series):
+    return series.count()
+
+def backup_time(water_level):
+    try:
+        file_path = os.path.join(os.getcwd(), "data", "weekly_report.csv")
+        file=pd.read_csv(file_path)
+        average_drain_rate =round(file['Drain Rate'].mean(), ndigits=2)
+        backup_time = round(((water_level - 7) / average_drain_rate), ndigits=1) *60 # in minutes
+        final_time= filling_time_format(backup_time) # in minutes and seconds
+        return final_time
+    
+    except Exception as e:
+        logging.error(f"Error in backup time calculation: {e}")
+        return 'NaN'

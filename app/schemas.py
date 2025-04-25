@@ -18,6 +18,7 @@ class Get_Readings(BaseModel):
     mode: str = Field(..., description="Mode of operation (Filling/Draining/Adjusting)")
     flag: str = Field(..., description="Leak detection flag")
     last_mode_csv: str = Field(..., description="Last mode of operation in CSV data file (Filling/Draining/Adjusting)")
+    estimated_water_coverage: str = Field(..., description="Estimated water coverage time in HH:MM:SS format")
 
 class First_Reading(BaseModel):
     water_level: float = Field(..., description="By default, value is 0")

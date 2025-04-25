@@ -3,8 +3,10 @@ import os
 from fastapi import HTTPException
 import pandas as pd
 from app.config import Settings
-from app.csv_handler import recent_fillings_write
-from app.utils import filling_time_format
+from app.csv_handler import recent_fillings_write, weekly_analysis
+from app.utils import filling_time_format, average_volume, draining_rate, frequency
+from pytz import timezone
+IST = timezone('Asia/Kolkata')
 
 #-------------Past Fillings Analysis-----------------
 def recent_filling_calculation():
@@ -110,3 +112,50 @@ def leak_check(past_reading_time, sensor_time, min_time=3, max_time=6, min_chang
     else:
         logging.info("Time difference is outside the acceptable range for leak detection")
         return False
+
+
+#-----------------Past 7 days analysis--------------------
+def past_week():
+    try:
+        file_path = os.path.join(os.getcwd(), "data", "data.csv")
+        file=pd.read_csv(file_path).dropna(how='all')
+        file['Timestamp'] = pd.to_datetime(file['Timestamp']).dt.tz_localize(IST)
+        
+        # Defining the time frame
+        past_week= pd.to_datetime('now', utc=True).astimezone(IST).normalize() - pd.Timedelta(days=7)
+        file=file[ file['Timestamp'] > past_week]
+                
+        # Filters for darinage and refill
+        rows_adjusting_draining= ((file['Mode']=='ADJUSTING') & (file['Mode'].shift(-1) == 'DRAINING'))
+        rows_draining_adjusting= ((file['Mode']=='DRAINING') & (file['Mode'].shift(1) == 'ADJUSTING'))
+        rows_filling= (file['Mode']=='FILLING')
+        rows_adjusting_filling= ((file['Mode']=='ADJUSTING') & (file['Mode'].shift(-1) == 'FILLING'))
+        rows_draining_adjusting_filling= ((file['Mode']=='DRAINING') & (file['Mode'].shift(-1) == 'ADJUSTING') & (file['Mode'].shift(1) == 'FILLING'))
+
+        # Filtered dataframes
+        df_draining=file[~(rows_draining_adjusting | rows_adjusting_draining | rows_filling | rows_adjusting_filling | rows_draining_adjusting_filling)].set_index('Timestamp')
+        df_filling=file[ rows_filling | rows_adjusting_filling ].set_index('Timestamp')
+        
+        active_hours= (df_draining.index.hour >= 8) & (df_draining.index.hour < 22)
+        df_active_hours= df_draining[active_hours].copy()
+       
+        df_average_draining_volume=df_draining.resample('D').agg({'Change' : average_volume})
+        df_draining_rate=df_active_hours.resample('D').agg({'Change' : draining_rate})
+        df_average_filling_volume=df_filling.resample('D').agg({'Change' : average_volume})
+        df_total_frequency_draining=df_draining.resample('D').agg({'Change' : frequency})
+       
+        combined_df= pd.concat([
+            df_average_draining_volume.rename(columns={'Change': 'Avg Drain Volume'}),
+            df_draining_rate.rename(columns={'Change': 'Drain Rate'}),
+            df_average_filling_volume.rename(columns={'Change': 'Avg Fill Volume'}),
+            df_total_frequency_draining.rename(columns={'Change': 'Drain Frequency'})
+        ], axis=1)
+       
+        weekly_analysis(combined_df)
+       
+        return True
+    
+    except Exception as e:
+        logging.error(f"Error in past week calculation: {e}")
+        raise HTTPException(status_code=500, detail="Error in past week calculation")
+
